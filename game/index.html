@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Twin Skies Observatory — Spot the Difference</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    background: radial-gradient(1200px 700px at 50% -10%, #2b3a67 0%, #141b36 55%, #0a0e22 100%);
+    color: #f3e9cf; min-height: 100%; padding: 18px 14px 26px;
+  }
+  header { text-align: center; margin-bottom: 12px; }
+  h1 { font-size: 34px; letter-spacing: 3px; color: #ffd97a; text-shadow: 0 2px 0 #7a4d12, 0 4px 14px rgba(0,0,0,.6); }
+  .sub { color: #b9c4e8; font-style: italic; margin-top: 3px; font-size: 15px; }
+  #hud {
+    display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: stretch;
+    max-width: 1120px; margin: 0 auto 12px;
+  }
+  .pill {
+    background: linear-gradient(180deg, #232c52, #171e3d); border: 2px solid #c9a44a; border-radius: 12px;
+    padding: 7px 16px; min-width: 118px; text-align: center; box-shadow: 0 3px 10px rgba(0,0,0,.45);
+  }
+  .pill .lab { font-size: 11px; letter-spacing: 2px; color: #9fb0dd; text-transform: uppercase; }
+  .pill .val { font-size: 24px; font-weight: bold; color: #fff2cf; line-height: 1.15; }
+  .pill.remain .val { color: #ff8f6b; font-size: 30px; }
+  .pill.foundp .val { color: #8fe3a0; }
+  #stage { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; max-width: 1140px; margin: 0 auto; }
+  figure {
+    background: linear-gradient(180deg, #3a2c14, #241a0a); padding: 10px 10px 8px; border-radius: 10px;
+    border: 2px solid #c9a44a; box-shadow: 0 10px 26px rgba(0,0,0,.55);
+  }
+  figcaption { text-align: center; letter-spacing: 3px; font-size: 13px; color: #ffd97a; padding: 6px 0 2px; }
+  canvas { display: block; width: 520px; height: 380px; border-radius: 4px; cursor: crosshair; background: #101736; }
+  canvas.shake { animation: shk .28s; }
+  @keyframes shk { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+  #bar { text-align: center; margin-top: 14px; }
+  button {
+    font-family: inherit; font-size: 16px; letter-spacing: 1px; cursor: pointer;
+    background: linear-gradient(180deg, #ffe9a8, #e8b64c); color: #3a2703; border: 2px solid #8a6414;
+    border-radius: 10px; padding: 9px 20px; margin: 0 5px; box-shadow: 0 3px 8px rgba(0,0,0,.4);
+  }
+  button:hover { filter: brightness(1.07); }
+  button.ghost { background: linear-gradient(180deg, #2c3766, #1a2247); color: #dfe7ff; border-color: #5f74b8; }
+  #msg { min-height: 26px; font-size: 18px; color: #ffe9a8; margin-top: 10px; font-style: italic; }
+  #keys { color: #8fa0cf; font-size: 13px; margin-top: 4px; letter-spacing: 1px; }
+  #dots { text-align: center; margin-top: 8px; font-size: 20px; letter-spacing: 6px; color: #5f74b8; }
+  #dots b { color: #ffd97a; font-weight: normal; }
+  #veil {
+    position: fixed; inset: 0; background: rgba(5,8,20,.82); display: none;
+    align-items: center; justify-content: center; z-index: 9;
+  }
+  #veil .card {
+    background: linear-gradient(180deg, #26305a, #141b36); border: 3px solid #c9a44a; border-radius: 16px;
+    padding: 34px 48px; text-align: center; box-shadow: 0 18px 50px rgba(0,0,0,.7); max-width: 560px;
+  }
+  #veil h2 { color: #ffd97a; font-size: 30px; letter-spacing: 2px; margin-bottom: 10px; }
+  #veil p { color: #dfe7ff; font-size: 17px; margin-bottom: 8px; line-height: 1.5; }
+  #veil .stars { font-size: 34px; color: #ffd97a; letter-spacing: 6px; margin: 8px 0 14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>TWIN SKIES</h1>
+  <div class="sub">a spot-the-difference parlour &mdash; three little worlds, seven sly changes in each</div>
+</header>
+
+<div id="hud">
+  <div class="pill"><div class="lab">Scene</div><div class="val" id="hScene">1 / 3</div></div>
+  <div class="pill foundp"><div class="lab">Found</div><div class="val" id="hFound">0 / 7</div></div>
+  <div class="pill remain"><div class="lab">Still hiding</div><div class="val" id="hRemain">7</div></div>
+  <div class="pill"><div class="lab">Time</div><div class="val" id="hTime">0:00</div></div>
+  <div class="pill"><div class="lab">Score</div><div class="val" id="hScore">0</div></div>
+  <div class="pill"><div class="lab">Misses</div><div class="val" id="hMiss">0</div></div>
+  <div class="pill"><div class="lab">Hints</div><div class="val" id="hHint">3</div></div>
+</div>
+
+<div id="stage">
+  <figure><canvas id="cvL" width="520" height="380"></canvas><figcaption>THE TRUE SKY</figcaption></figure>
+  <figure><canvas id="cvR" width="520" height="380"></canvas><figcaption>THE TRICK SKY</figcaption></figure>
+</div>
+
+<div id="dots"></div>
+<div id="bar">
+  <button id="bHint">Hint (H)</button>
+  <button id="bRestart" class="ghost">Restart scene (R)</button>
+  <button id="bPrev" class="ghost">&larr; Prev</button>
+  <button id="bNext" class="ghost">Next &rarr;</button>
+</div>
+<div id="msg">Find the seven changes hiding in the trick sky. Click either picture.</div>
+<div id="keys" style="text-align:center">Mouse: click a difference &nbsp;&middot;&nbsp; Keyboard: arrow keys steer the brass ring, Enter claims it &nbsp;&middot;&nbsp; H hint &nbsp;&middot;&nbsp; R restart</div>
+
+<div id="veil"><div class="card">
+  <h2 id="vTitle">Scene complete!</h2>
+  <div class="stars" id="vStars">&#9733;&#9733;&#9733;</div>
+  <p id="vText"></p>
+  <button id="vBtn">Onward</button>
+</div></div>
+
+<script>
+'use strict';
+var W = 520, H = 380;
+var cvL = document.getElementById('cvL'), cvR = document.getElementById('cvR');
+var gL = cvL.getContext('2d'), gR = cvR.getContext('2d');
+
+/* deterministic scatter so both skies share every star and grain */
+function rng(seed) { var a = seed >>> 0; return function () { a |= 0; a = (a + 0x6D2B79F5) | 0; var t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function circle(g, x, y, r, fill) { g.beginPath(); g.arc(x, y, r, 0, 6.2832); if (fill) { g.fillStyle = fill; g.fill(); } }
+function ring(g, x, y, r, col, w) { g.beginPath(); g.arc(x, y, r, 0, 6.2832); g.strokeStyle = col; g.lineWidth = w; g.stroke(); }
+function rect(g, x, y, w, h, fill) { g.fillStyle = fill; g.fillRect(x, y, w, h); }
+function line(g, x1, y1, x2, y2, col, w) { g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.strokeStyle = col; g.lineWidth = w; g.stroke(); }
+function poly(g, pts, fill) { g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (var i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); g.closePath(); if (fill) { g.fillStyle = fill; g.fill(); } }
+function txt(g, s, x, y, size, col, align) { g.fillStyle = col; g.font = 'bold ' + size + 'px Georgia, serif'; g.textAlign = align || 'center'; g.fillText(s, x, y); }
+
+/* ================= SCENE 1 : THE CLOCKWORK OBSERVATORY ================= */
+function drawObservatory(g, alt) {
+  var gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#0d1440'); gr.addColorStop(.65, '#27336e'); gr.addColorStop(1, '#3c4479');
+  rect(g, 0, 0, W, H, gr);
+  var r = rng(41), i, x, y;
+  for (i = 0; i < 90; i++) { x = r() * W; y = r() * 210; circle(g, x, y, r() * 1.5 + .4, 'rgba(255,246,200,' + (0.35 + r() * 0.6) + ')'); }
+  /* DIFF 2: one bright star above the dome vanishes in the trick sky */
+  if (!alt.has(2)) { circle(g, 118, 52, 4.5, '#fff6c8'); ring(g, 118, 52, 8, 'rgba(255,246,200,.55)', 2); line(g, 118, 40, 118, 64, 'rgba(255,246,200,.5)', 2); line(g, 106, 52, 130, 52, 'rgba(255,246,200,.5)', 2); }
+  /* DIFF 1: the moon is full in the true sky, a crescent in the trick sky */
+  circle(g, 432, 62, 30, '#f7ecc0'); circle(g, 424, 54, 6, '#e3d194'); circle(g, 442, 74, 4.5, '#e3d194'); circle(g, 430, 78, 3, '#e3d194');
+  if (alt.has(1)) { circle(g, 447, 52, 26, '#141c4e'); }
+  ring(g, 432, 62, 36, 'rgba(247,236,192,.35)', 5);
+  /* hills */
+  poly(g, [[0, 300], [90, 262], [190, 296], [300, 258], [420, 298], [520, 268], [520, 380], [0, 380]], '#1c2a1e');
+  poly(g, [[0, 322], [120, 292], [260, 324], [400, 294], [520, 320], [520, 380], [0, 380]], '#24381f');
+  /* observatory dome and body */
+  rect(g, 196, 218, 128, 92, '#8d99b8'); rect(g, 196, 218, 128, 10, '#6d7898');
+  g.beginPath(); g.arc(260, 218, 64, 3.1416, 0); g.closePath(); g.fillStyle = '#c7cede'; g.fill();
+  g.beginPath(); g.arc(260, 218, 64, 3.1416, 0); g.closePath(); g.strokeStyle = '#8d99b8'; g.lineWidth = 3; g.stroke();
+  poly(g, [[252, 156], [286, 162], [282, 218], [258, 218]], '#39406b');
+  rect(g, 244, 268, 30, 42, '#4a3520'); ring(g, 268, 290, 3, '#ffd97a', 2);
+  rect(g, 210, 240, 20, 24, '#ffd97a'); rect(g, 290, 240, 20, 24, '#ffd97a'); line(g, 220, 240, 220, 264, '#8d99b8', 2); line(g, 300, 240, 300, 264, '#8d99b8', 2);
+  /* DIFF 3: the great telescope is brass in the true sky, teal in the trick sky */
+  var tube = alt.has(3) ? '#2fa8a0' : '#d9a441';
+  g.save(); g.translate(150, 250); g.rotate(-0.62);
+  rect(g, -14, -118, 28, 118, tube); rect(g, -19, -126, 38, 12, '#5b667f'); rect(g, -10, -14, 20, 14, '#5b667f'); g.restore();
+  line(g, 150, 250, 128, 306, '#5b667f', 6); line(g, 150, 250, 174, 306, '#5b667f', 6); line(g, 150, 250, 150, 306, '#5b667f', 6);
+  circle(g, 150, 250, 9, '#39406b');
+  /* bookshelf hut on the left */
+  rect(g, 34, 196, 66, 96, '#5d4630'); poly(g, [[28, 198], [67, 172], [106, 198]], '#3c2c1c');
+  rect(g, 42, 210, 50, 8, '#3c2c1c'); rect(g, 42, 240, 50, 8, '#3c2c1c');
+  var bookCols = ['#b84a39', '#3f7fbf', '#e0b13e', '#5da85d', '#8a5fb0'];
+  for (i = 0; i < 5; i++) rect(g, 44 + i * 10, 218 - (i % 3) * 2, 7, 20 + (i % 3) * 2, bookCols[i]);
+  /* DIFF 5: the tall book is scarlet in the true sky, green in the trick sky */
+  rect(g, 74, 252, 9, 34, alt.has(5) ? '#3f9e4d' : '#c22f2f');
+  for (i = 0; i < 4; i++) rect(g, 44 + i * 7, 256, 5, 30, bookCols[(i + 1) % 5]);
+  /* DIFF 4: a cat keeps watch on the fence in the true sky only */
+  rect(g, 356, 316, 130, 6, '#3c2c1c'); line(g, 372, 322, 372, 348, '#3c2c1c', 5); line(g, 470, 322, 470, 348, '#3c2c1c', 5);
+  if (!alt.has(4)) {
+    circle(g, 402, 300, 13, '#22242e'); g.beginPath(); g.ellipse(402, 314, 17, 9, 0, 0, 6.2832); g.fillStyle = '#22242e'; g.fill();
+    poly(g, [[392, 292], [390, 278], [400, 288]], '#22242e'); poly(g, [[404, 288], [414, 278], [412, 292]], '#22242e');
+    circle(g, 397, 300, 2, '#ffd97a'); circle(g, 407, 300, 2, '#ffd97a');
+    g.beginPath(); g.arc(420, 316, 10, 3.4, 5.6); g.strokeStyle = '#22242e'; g.lineWidth = 4; g.stroke();
+  }
+  /* star chart board on the right */
+  rect(g, 398, 128, 96, 76, '#efe3c2'); rect(g, 398, 128, 96, 76, 'rgba(0,0,0,0)'); g.strokeStyle = '#7a5c22'; g.lineWidth = 4; g.strokeRect(398, 128, 96, 76);
+  line(g, 446, 204, 446, 232, '#5d4630', 6);
+  circle(g, 424, 152, 7, '#e07840');
+  /* DIFF 7: the chart's ringed planet loses its ring in the trick sky */
+  circle(g, 458, 168, 10, '#d9b45c');
+  if (!alt.has(7)) { g.beginPath(); g.ellipse(458, 168, 19, 6, -0.4, 0, 6.2832); g.strokeStyle = '#a87f2e'; g.lineWidth = 3; g.stroke(); }
+  var rr = rng(7); for (i = 0; i < 12; i++) circle(g, 404 + rr() * 84, 134 + rr() * 62, 1.4, '#7a6a3a');
+  /* DIFF 6: the porch lantern burns in the true sky, dark in the trick sky */
+  line(g, 330, 218, 330, 240, '#22242e', 3); rect(g, 322, 240, 16, 20, '#22242e');
+  if (!alt.has(6)) { circle(g, 330, 250, 6, '#ffca5f'); ring(g, 330, 250, 13, 'rgba(255,202,95,.4)', 5); } else { rect(g, 326, 244, 8, 12, '#39406b'); }
+  txt(g, 'THE CLOCKWORK OBSERVATORY', 260, 368, 15, 'rgba(243,233,207,.75)');
+}
+
+/* ================= SCENE 2 : THE GLASS REEF ================= */
+function fish(g, x, y, s, col, flip) {
+  g.save(); g.translate(x, y); g.scale(flip ? -s : s, s);
+  g.beginPath(); g.ellipse(0, 0, 16, 8, 0, 0, 6.2832); g.fillStyle = col; g.fill();
+  poly(g, [[14, 0], [26, -8], [26, 8]], col); circle(g, -7, -2, 2.2, '#10222e'); g.restore();
+}
+function drawReef(g, alt) {
+  var gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#2e7ea6'); gr.addColorStop(.6, '#1a5d84'); gr.addColorStop(1, '#0d3d5c');
+  rect(g, 0, 0, W, H, gr);
+  var r = rng(97), i, x, y;
+  for (i = 0; i < 7; i++) { x = 40 + r() * 440; g.beginPath(); g.ellipse(x, 396, 90 + r() * 60, 60, 0, 3.1416, 0); g.fillStyle = 'rgba(255,255,220,.05)'; g.fill(); }
+  /* sunken ship silhouette */
+  poly(g, [[330, 96], [452, 96], [438, 128], [346, 128]], '#14425f'); rect(g, 382, 62, 10, 36, '#14425f'); poly(g, [[392, 62], [392, 96], [420, 96]], 'rgba(230,240,255,.5)');
+  rect(g, 0, 330, W, 50, '#c9b183'); var rs = rng(5); for (i = 0; i < 60; i++) circle(g, rs() * W, 334 + rs() * 42, 1.6, '#a68f5f');
+  /* coral fans */
+  function coral(cx, col) { for (var k = -2; k <= 2; k++) { line(g, cx, 336, cx + k * 13, 292 - Math.abs(k) * 6, col, 6); circle(g, cx + k * 13, 290 - Math.abs(k) * 6, 6, col); } }
+  coral(66, '#e2703a'); coral(452, '#c94f7c'); coral(238, '#e2703a');
+  /* DIFF 2: the little silver school counts five in the true sea, four in the trick sea */
+  fish(g, 108, 108, 1, '#cfd8dc', 1); fish(g, 148, 88, .85, '#cfd8dc', 1); fish(g, 146, 132, .8, '#cfd8dc', 1); fish(g, 190, 110, .9, '#cfd8dc', 1);
+  if (!alt.has(2)) fish(g, 84, 140, .75, '#cfd8dc', 1);
+  fish(g, 300, 70, 1.1, '#ffb340', 0); fish(g, 348, 52, .9, '#ffb340', 0);
+  /* DIFF 4: a braid of bubbles rises in the true sea only */
+  if (!alt.has(4)) { circle(g, 486, 96, 5, 'rgba(220,245,255,.75)'); circle(g, 478, 76, 7, 'rgba(220,245,255,.65)'); circle(g, 488, 52, 4, 'rgba(220,245,255,.8)'); circle(g, 480, 30, 6, 'rgba(220,245,255,.6)'); }
+  /* DIFF 1: the octopus is violet in the true sea, ember-orange in the trick sea */
+  var octo = alt.has(1) ? '#e2703a' : '#8a5fb0';
+  circle(g, 402, 262, 26, octo); g.beginPath(); g.ellipse(402, 282, 30, 12, 0, 0, 6.2832); g.fillStyle = octo; g.fill();
+  for (i = -2; i <= 2; i++) { g.beginPath(); g.arc(402 + i * 13, 296 + Math.abs(i) * 3, 7, 0, 3.1416); g.strokeStyle = octo; g.lineWidth = 6; g.stroke(); }
+  circle(g, 392, 258, 4, '#fff'); circle(g, 412, 258, 4, '#fff'); circle(g, 392, 258, 2, '#10222e'); circle(g, 412, 258, 2, '#10222e');
+  /* DIFF 3: the treasure chest gapes with gold in the true sea, shut in the trick sea */
+  rect(g, 226, 306, 74, 34, '#6e4a22'); rect(g, 226, 306, 74, 8, '#54370f');
+  if (!alt.has(3)) {
+    poly(g, [[226, 306], [300, 306], [292, 282], [234, 282]], '#54370f');
+    circle(g, 246, 300, 7, '#ffd94d'); circle(g, 264, 296, 8, '#ffd94d'); circle(g, 282, 300, 7, '#ffd94d'); circle(g, 256, 290, 6, '#ffe98a'); circle(g, 274, 290, 6, '#ffe98a');
+  } else { g.beginPath(); g.arc(263, 306, 37, 3.1416, 0); g.closePath(); g.fillStyle = '#7d5626'; g.fill(); rect(g, 256, 300, 14, 16, '#c9a44a'); }
+  /* DIFF 5: a great anchor rests in the true sea, gone in the trick sea */
+  if (!alt.has(5)) {
+    line(g, 62, 268, 62, 322, '#5b667f', 6); ring(g, 62, 262, 8, '#5b667f', 5);
+    line(g, 38, 292, 86, 292, '#5b667f', 6); poly(g, [[36, 322], [52, 306], [56, 326]], '#5b667f'); poly(g, [[88, 322], [72, 306], [68, 326]], '#5b667f');
+  }
+  /* seaweed */
+  function weed(cx, h, col) { g.beginPath(); g.moveTo(cx, 338); g.quadraticCurveTo(cx + 12, 338 - h / 2, cx, 338 - h); g.strokeStyle = col; g.lineWidth = 7; g.stroke(); }
+  weed(180, 74, '#2e8b57'); weed(196, 54, '#37a169'); weed(330, 64, '#2e8b57');
+  /* DIFF 7: a scallop shell gleams in the true sea only */
+  if (!alt.has(7)) { g.beginPath(); g.arc(168, 330, 13, 3.1416, 0); g.closePath(); g.fillStyle = '#f2c4ce'; g.fill(); for (i = -2; i <= 2; i++) line(g, 168, 330, 168 + i * 5, 319, '#d18ba0', 2); }
+  /* DIFF 6: the starfish is scarlet in the true sea, sunny in the trick sea */
+  var sc = alt.has(6) ? '#ffd94d' : '#e2483d';
+  g.save(); g.translate(352, 330); g.beginPath();
+  for (i = 0; i < 10; i++) { var an = i * 0.6283 - 1.5708, rad = i % 2 ? 7 : 16; g[i ? 'lineTo' : 'moveTo'](Math.cos(an) * rad, Math.sin(an) * rad); }
+  g.closePath(); g.fillStyle = sc; g.fill(); g.restore(); circle(g, 352, 330, 3, 'rgba(0,0,0,.25)');
+  txt(g, 'THE GLASS REEF', 260, 368, 15, 'rgba(230,246,255,.8)');
+}
+
+/* ================= SCENE 3 : THE CABLE-CAR PASS ================= */
+function pine(g, x, y, s) { poly(g, [[x, y - 44 * s], [x - 16 * s, y - 8 * s], [x + 16 * s, y - 8 * s]], '#1f4d2e'); poly(g, [[x, y - 30 * s], [x - 19 * s, y + 8 * s], [x + 19 * s, y + 8 * s]], '#276338'); rect(g, x - 3 * s, y + 6 * s, 6 * s, 10 * s, '#5d4630'); }
+function drawPass(g, alt) {
+  var gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#a8d4f0'); gr.addColorStop(.55, '#dceefb'); gr.addColorStop(1, '#f4e8c8');
+  rect(g, 0, 0, W, H, gr);
+  /* DIFF 5: the sun wears a full crown of rays in the true sky, a short one in the trick sky */
+  var rays = alt.has(5) ? 5 : 9, i;
+  for (i = 0; i < rays; i++) { var an = i / rays * 6.2832; line(g, 62 + Math.cos(an) * 34, 56 + Math.sin(an) * 34, 62 + Math.cos(an) * 48, 56 + Math.sin(an) * 48, '#f2a81d', 4); }
+  circle(g, 62, 56, 27, '#ffd94d'); ring(g, 62, 56, 27, '#f2a81d', 3);
+  /* far peaks */
+  poly(g, [[-10, 250], [110, 96], [220, 250]], '#7f95ad'); poly(g, [[150, 250], [268, 120], [380, 250]], '#8fa6bd'); poly(g, [[320, 250], [436, 108], [530, 250]], '#7f95ad');
+  /* DIFF 2: the middle peak keeps its snow cap in the true sky only */
+  poly(g, [[110, 96], [86, 132], [100, 128], [110, 140], [122, 126], [136, 134]], '#ffffff');
+  if (!alt.has(2)) poly(g, [[268, 120], [246, 152], [258, 148], [268, 160], [280, 146], [292, 154]], '#ffffff');
+  poly(g, [[436, 108], [414, 142], [428, 136], [438, 150], [448, 134], [460, 144]], '#ffffff');
+  /* DIFF 4: three swallows ride the wind in the true sky, two in the trick sky */
+  function bird(bx, by) { g.beginPath(); g.arc(bx - 8, by, 8, 3.4, 5.9); g.strokeStyle = '#33506b'; g.lineWidth = 2.5; g.stroke(); g.beginPath(); g.arc(bx + 8, by, 8, 3.7, 6.2); g.stroke(); }
+  bird(356, 58); bird(398, 42); if (!alt.has(4)) bird(330, 84);
+  /* cable lines and towers */
+  line(g, 0, 118, 520, 168, '#33506b', 3); line(g, 0, 132, 520, 182, '#33506b', 2);
+  line(g, 66, 210, 66, 300, '#5b667f', 7); line(g, 40, 226, 92, 226, '#5b667f', 6);
+  line(g, 466, 236, 466, 316, '#5b667f', 7); line(g, 440, 252, 492, 252, '#5b667f', 6);
+  /* DIFF 1: the cable car is poppy red in the true sky, lake blue in the trick sky */
+  var car = alt.has(1) ? '#2f6fb8' : '#d23c2a';
+  line(g, 258, 138, 258, 158, '#33506b', 5); rect(g, 222, 158, 74, 52, car); rect(g, 222, 158, 74, 10, 'rgba(0,0,0,.22)');
+  rect(g, 230, 176, 16, 18, '#eaf6ff'); rect(g, 252, 176, 16, 18, '#eaf6ff'); rect(g, 274, 176, 14, 18, '#eaf6ff'); rect(g, 222, 204, 74, 6, '#7a2418');
+  /* near slope */
+  poly(g, [[0, 300], [140, 268], [300, 306], [520, 278], [520, 380], [0, 380]], '#3f7a44');
+  poly(g, [[0, 336], [180, 306], [360, 340], [520, 316], [520, 380], [0, 380]], '#356b3a');
+  pine(g, 44, 316, 1); pine(g, 96, 330, .8); pine(g, 150, 306, .9);
+  /* DIFF 6: a lone pine stands at the right edge in the true sky only */
+  if (!alt.has(6)) pine(g, 486, 322, 1.05);
+  pine(g, 330, 330, .85);
+  /* the station cabin */
+  rect(g, 388, 268, 92, 58, '#7a5636'); poly(g, [[380, 270], [434, 240], [488, 270]], '#54370f');
+  rect(g, 424, 292, 20, 34, '#4a3520');
+  /* DIFF 7: the cabin window glows lamplit in the true sky, dark in the trick sky */
+  rect(g, 398, 282, 18, 16, alt.has(7) ? '#33506b' : '#ffd94d');
+  /* DIFF 3: a pennant flies from the cabin roof in the true sky only */
+  line(g, 434, 240, 434, 216, '#54370f', 3);
+  if (!alt.has(3)) poly(g, [[434, 216], [458, 221], [434, 228]], '#d23c2a');
+  /* lake corner */
+  g.beginPath(); g.ellipse(96, 362, 84, 15, 0, 0, 6.2832); g.fillStyle = '#7db8d9'; g.fill();
+  txt(g, 'THE CABLE-CAR PASS', 300, 368, 15, '#1e3246');
+}
+
+/* ================= GAME STATE ================= */
+var SCENES = [
+  { name: 'The Clockwork Observatory', draw: drawObservatory, diffs: [
+    { x: 432, y: 62, r: 34, label: 'the moon turned crescent' },
+    { x: 118, y: 52, r: 26, label: 'the bright star vanished' },
+    { x: 150, y: 196, r: 32, label: 'the telescope changed colour' },
+    { x: 402, y: 302, r: 30, label: 'the watch-cat slipped away' },
+    { x: 78, y: 268, r: 26, label: 'the tall book changed colour' },
+    { x: 330, y: 250, r: 26, label: 'the porch lantern went dark' },
+    { x: 458, y: 168, r: 28, label: 'the ringed planet lost its ring' } ] },
+  { name: 'The Glass Reef', draw: drawReef, diffs: [
+    { x: 402, y: 272, r: 34, label: 'the octopus changed colour' },
+    { x: 84, y: 140, r: 26, label: 'one silver fish went missing' },
+    { x: 263, y: 300, r: 34, label: 'the treasure chest slammed shut' },
+    { x: 484, y: 62, r: 30, label: 'the braid of bubbles vanished' },
+    { x: 62, y: 292, r: 34, label: 'the great anchor disappeared' },
+    { x: 352, y: 330, r: 26, label: 'the starfish changed colour' },
+    { x: 168, y: 326, r: 24, label: 'the scallop shell vanished' } ] },
+  { name: 'The Cable-Car Pass', draw: drawPass, diffs: [
+    { x: 259, y: 182, r: 36, label: 'the cable car changed colour' },
+    { x: 268, y: 138, r: 28, label: 'the middle peak lost its snow' },
+    { x: 446, y: 222, r: 24, label: 'the cabin pennant vanished' },
+    { x: 330, y: 84, r: 24, label: 'one swallow left the sky' },
+    { x: 62, y: 56, r: 36, label: 'the sun lost some rays' },
+    { x: 486, y: 306, r: 30, label: 'the lone pine disappeared' },
+    { x: 407, y: 290, r: 22, label: 'the cabin window went dark' } ] }
+];
+var ALL = { has: function () { return true; } };
+var NONE = { has: function () { return false; } };
+
+var qs = new URLSearchParams(location.search);
+var shotMode = qs.get('shot');
+var state = {
+  scene: 0, found: [], score: 0, miss: 0, hints: 3, secs: 0, over: false,
+  kx: 260, ky: 190, hintIdx: -1, hintUntil: 0, done: [false, false, false], sceneScore: 0
+};
+if (shotMode) {
+  state.scene = Math.min(2, Math.max(0, parseInt(qs.get('scene') || '1', 10) - 1));
+  var nf = Math.min(6, Math.max(1, parseInt(qs.get('found') || '3', 10)));
+  for (var si = 0; si < nf; si++) state.found.push(si);
+  state.score = nf * 100 + 140; state.miss = 1; state.secs = 47 + state.scene * 31; state.hints = 2;
+}
+
+var AC = null;
+function tone(f, d, type) {
+  try {
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    var o = AC.createOscillator(), gn = AC.createGain();
+    o.type = type || 'sine'; o.frequency.value = f; gn.gain.setValueAtTime(.12, AC.currentTime);
+    gn.gain.exponentialRampToValueAtTime(.001, AC.currentTime + d);
+    o.connect(gn); gn.connect(AC.destination); o.start(); o.stop(AC.currentTime + d);
+  } catch (e) {}
+}
+function goodSound() { tone(660, .12); setTimeout(function () { tone(990, .2); }, 90); }
+function badSound() { tone(140, .22, 'sawtooth'); }
+
+function altSet() { var s = {}; SCENES[state.scene].diffs.forEach(function (d, i) { s[i] = true; }); return { has: function (n) { return !!s[n - 1]; } }; }
+function render() {
+  var sc = SCENES[state.scene];
+  sc.draw(gL, NONE); sc.draw(gR, altSet());
+  [gL, gR].forEach(function (g) {
+    state.found.forEach(function (di) {
+      var d = sc.diffs[di];
+      ring(g, d.x, d.y, d.r - 4, 'rgba(20,20,20,.45)', 7);
+      ring(g, d.x, d.y, d.r - 4, '#ffd94d', 4);
+      circle(g, d.x, d.y - d.r + 2, 4, '#ff5f45');
+    });
+    if (state.hintIdx >= 0 && Date.now() < state.hintUntil) {
+      var hd = sc.diffs[state.hintIdx], p = 1 + 0.18 * Math.sin(Date.now() / 90);
+      ring(g, hd.x, hd.y, hd.r * p, '#ff5f45', 4);
+    }
+  });
+  /* brass keyboard ring on the true sky */
+  ring(gL, state.kx, state.ky, 15, 'rgba(20,20,20,.4)', 5); ring(gL, state.kx, state.ky, 15, '#ffb340', 3);
+  circle(gL, state.kx, state.ky, 2.5, '#ffb340');
+  document.getElementById('hScene').textContent = (state.scene + 1) + ' / 3';
+  document.getElementById('hFound').textContent = state.found.length + ' / 7';
+  document.getElementById('hRemain').textContent = String(7 - state.found.length);
+  document.getElementById('hScore').textContent = String(state.score);
+  document.getElementById('hMiss').textContent = String(state.miss);
+  document.getElementById('hHint').textContent = String(state.hints);
+  var m = Math.floor(state.secs / 60), ss = state.secs % 60;
+  document.getElementById('hTime').textContent = m + ':' + (ss < 10 ? '0' : '') + ss;
+  var dots = '';
+  for (var i = 0; i < 7; i++) dots += state.found.indexOf(i) >= 0 ? '<b>&#9679;</b>' : '&#9675;';
+  document.getElementById('dots').innerHTML = dots;
+}
+function say(t) { document.getElementById('msg').textContent = t; }
+function claim(x, y, cv) {
+  if (state.over || shotMode) return;
+  var sc = SCENES[state.scene], best = -1, bd = 1e9;
+  sc.diffs.forEach(function (d, i) {
+    if (state.found.indexOf(i) >= 0) return;
+    var dist = Math.hypot(d.x - x, d.y - y);
+    if (dist < bd) { bd = dist; best = i; }
+  });
+  if (best >= 0 && bd <= sc.diffs[best].r + 8) {
+    state.found.push(best); state.score += 100; state.sceneScore += 100;
+    goodSound(); say('Found it — ' + sc.diffs[best].label + '! ' + (7 - state.found.length) + ' still hiding.');
+    if (state.found.length === 7) { sceneClear(); }
+  } else {
+    state.miss++; state.score = Math.max(0, state.score - 15); badSound();
+    cv.classList.remove('shake'); void cv.offsetWidth; cv.classList.add('shake');
+    say('Nothing there but sky. A miss costs 15 points.');
+  }
+  render();
+}
+function sceneClear() {
+  state.over = true; state.done[state.scene] = true;
+  var bonus = Math.max(0, 210 - state.secs * 1); state.score += Math.round(bonus);
+  var stars = state.miss <= 2 ? 3 : (state.miss <= 5 ? 2 : 1);
+  var last = state.done.every(Boolean);
+  document.getElementById('vTitle').textContent = last ? 'All three worlds restored!' : 'Scene complete!';
+  document.getElementById('vStars').innerHTML = '&#9733;'.repeat(stars) + '&#9734;'.repeat(3 - stars);
+  document.getElementById('vText').textContent = last
+    ? 'Every sly change found. Final score: ' + state.score + ' points in ' + state.secs + ' seconds of hunting.'
+    : SCENES[state.scene].name + ' is whole again. Time bonus +' + Math.round(bonus) + '. Score: ' + state.score + '.';
+  document.getElementById('vBtn').textContent = last ? 'Play again' : 'Next scene';
+  document.getElementById('veil').style.display = 'flex';
+  tone(523, .15); setTimeout(function () { tone(659, .15); }, 130); setTimeout(function () { tone(784, .3); }, 260);
+}
+function loadScene(n, keepScore) {
+  state.scene = (n + 3) % 3; state.found = []; state.over = false; state.sceneScore = 0;
+  if (!keepScore) { /* score carries between scenes by design */ }
+  document.getElementById('veil').style.display = 'none';
+  say(SCENES[state.scene].name + ' — seven changes hide in the trick picture.');
+  render();
+}
+function useHint() {
+  if (state.over || shotMode) return;
+  if (state.hints <= 0) { say('No hints left in the jar.'); return; }
+  var left = SCENES[state.scene].diffs.map(function (d, i) { return i; }).filter(function (i) { return state.found.indexOf(i) < 0; });
+  if (!left.length) return;
+  state.hints--; state.score = Math.max(0, state.score - 50);
+  state.hintIdx = left[Math.floor(Math.random() * left.length)]; state.hintUntil = Date.now() + 2600;
+  say('The brass compass trembles… watch the red ring. A hint costs 50 points.');
+  tone(880, .18); render();
+}
+function evtPos(e, cv) { var b = cv.getBoundingClientRect(); return { x: (e.clientX - b.left) * W / b.width, y: (e.clientY - b.top) * H / b.height }; }
+cvL.addEventListener('click', function (e) { var p = evtPos(e, cvL); state.kx = p.x; state.ky = p.y; claim(p.x, p.y, cvL); });
+cvR.addEventListener('click', function (e) { var p = evtPos(e, cvR); claim(p.x, p.y, cvR); });
+document.getElementById('bHint').addEventListener('click', useHint);
+document.getElementById('bRestart').addEventListener('click', function () { loadScene(state.scene, true); });
+document.getElementById('bNext').addEventListener('click', function () { loadScene(state.scene + 1, true); });
+document.getElementById('bPrev').addEventListener('click', function () { loadScene(state.scene - 1, true); });
+document.getElementById('vBtn').addEventListener('click', function () {
+  if (state.done.every(Boolean)) { state.score = 0; state.miss = 0; state.hints = 3; state.secs = 0; state.done = [false, false, false]; loadScene(0, true); }
+  else loadScene(state.scene + 1, true);
+});
+document.addEventListener('keydown', function (e) {
+  var step = e.shiftKey ? 26 : 10;
+  if (e.key === 'ArrowLeft') { state.kx = Math.max(8, state.kx - step); }
+  else if (e.key === 'ArrowRight') { state.kx = Math.min(W - 8, state.kx + step); }
+  else if (e.key === 'ArrowUp') { state.ky = Math.max(8, state.ky - step); }
+  else if (e.key === 'ArrowDown') { state.ky = Math.min(H - 8, state.ky + step); }
+  else if (e.key === 'Enter' || e.key === ' ') { claim(state.kx, state.ky, cvL); e.preventDefault(); return; }
+  else if (e.key === 'h' || e.key === 'H') { useHint(); return; }
+  else if (e.key === 'r' || e.key === 'R') { loadScene(state.scene, true); return; }
+  else return;
+  e.preventDefault(); render();
+});
+setInterval(function () {
+  if (!state.over && !shotMode) { state.secs++; }
+  if (state.hintIdx >= 0) render(); else if (!shotMode) render();
+}, 1000);
+render();
+if (shotMode) say(SCENES[state.scene].name + ' — ' + state.found.length + ' found, ' + (7 - state.found.length) + ' still hiding.');
+</script>
+</body>
+</html>
